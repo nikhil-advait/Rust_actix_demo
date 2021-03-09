@@ -1,3 +1,4 @@
+use chrono::{NaiveDateTime, NaiveDate};
 use diesel::prelude::*;
 use uuid::Uuid;
 
@@ -11,7 +12,7 @@ pub fn find_user_by_uid(
     use crate::schema::users::dsl::*;
 
     let user = users
-        .filter(id.eq(uid.to_string()))
+        .filter(user_id.eq(uid))
         .first::<models::User>(conn)
         .optional()?;
 
@@ -21,7 +22,10 @@ pub fn find_user_by_uid(
 /// Run query using Diesel to insert a new database row and return the result.
 pub fn insert_new_user(
     // prevent collision with `name` column imported inside the function
-    nm: &str,
+    first_n: &str,
+    last_n: &str,
+    email_str: &str,
+    passwd: &str,
     conn: &PgConnection,
 ) -> Result<models::User, diesel::result::Error> {
     // It is common when using Diesel with Actix web to import schema-related
@@ -30,8 +34,12 @@ pub fn insert_new_user(
     use crate::schema::users::dsl::*;
 
     let new_user = models::User {
-        id: Uuid::new_v4().to_string(),
-        name: nm.to_owned(),
+        user_id: Uuid::new_v4(),
+        first_name: first_n.to_owned(),
+        last_name: last_n.to_owned(),
+        email: email_str.to_owned(),
+        password: passwd.to_owned(),
+        created_at: NaiveDate::from_ymd(2016, 7, 8).and_hms(9, 10, 11)
     };
 
     diesel::insert_into(users).values(&new_user).execute(conn)?;

@@ -4,11 +4,18 @@ use crate::schema::users;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable)]
 pub struct User {
-    pub id: String,
-    pub name: String,
+    pub user_id: uuid::Uuid,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
+    pub password: String,
+    pub created_at: chrono::NaiveDateTime
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewUser {
-    pub name: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
+    pub password: String,
 }

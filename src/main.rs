@@ -15,7 +15,7 @@ mod actions;
 mod models;
 mod schema;
 
-type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 /// Finds user by UID.
 #[get("/user/{user_id}")]
@@ -69,8 +69,8 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
 
     // set up database connection pool
-    let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-    let manager = ConnectionManager::<SqliteConnection>::new(connspec);
+    let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let manager = ConnectionManager::<PgConnection>::new(connspec);
     let pool = r2d2::Pool::builder()
         .build(manager)
         .expect("Failed to create pool.");
@@ -105,7 +105,7 @@ mod tests {
         dotenv::dotenv().ok();
 
         let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-        let manager = ConnectionManager::<SqliteConnection>::new(connspec);
+        let manager = ConnectionManager::<PgConnection>::new(connspec);
         let pool = r2d2::Pool::builder()
             .build(manager)
             .expect("Failed to create pool.");

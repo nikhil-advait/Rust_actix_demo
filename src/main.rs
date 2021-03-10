@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate diesel;
 
+use actions::{insert_new_order, insert_new_order_items};
 use actix_web::{get, middleware, post, web, App, Error, HttpResponse, HttpServer};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
@@ -38,14 +39,13 @@ async fn get_user(
     if let Some(user) = user {
         Ok(HttpResponse::Ok().json(user))
     } else {
-        let res = HttpResponse::NotFound()
-            .body(format!("No user found with uid: {}", user_uid));
+        let res = HttpResponse::NotFound().body(format!("No user found with uid: {}", user_uid));
         Ok(res)
     }
 }
 
 /// Inserts new user with name defined in form.
-#[post("/user")]
+#[post("/api/v1/auth/register")]
 async fn add_user(
     pool: web::Data<DbPool>,
     form: web::Json<models::NewUser>,
@@ -53,22 +53,57 @@ async fn add_user(
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     // use web::block to offload blocking Diesel code without blocking server thread
-    let user = web::block(
-        move || actions::insert_new_user(
+    let user = web::block(move || {
+        actions::insert_new_user(
             &form.first_name,
             &form.last_name,
             &form.email,
             &form.password,
-            &conn
+            &conn,
         )
-    )
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("{}", e);
+        HttpResponse::InternalServerError().finish()
+    })?;
 
     Ok(HttpResponse::Ok().json(user))
+}
+
+/// Inserts new user with name defined in form.
+#[post("/api/v1/orders")]
+async fn create_order(
+    pool: web::Data<DbPool>,
+    form: web::Json<models::NewOrder>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    let order_id = Uuid::new_v4();
+    let user_id = Uuid::parse_str("a16aec39-1668-4d4b-a5dd-4488093acc7b").unwrap();
+    let note_option = form.note.clone();
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let order = web::block(move || {
+        actions::insert_new_order(order_id.clone(), user_id, note_option, &conn)
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("{}", e);
+        HttpResponse::InternalServerError().finish()
+    })?;
+
+    let conn2 = pool.get().expect("couldn't get db connection from pool");
+
+    let flag =
+        web::block(move || actions::insert_new_order_items(order_id, form.items.clone(), &conn2))
+            .await
+            .map_err(|e| {
+                eprintln!("{}", e);
+                HttpResponse::InternalServerError().finish()
+            })?;
+
+    Ok(HttpResponse::Ok().json(order))
 }
 
 #[actix_web::main]
@@ -96,6 +131,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(get_user)
             .service(add_user)
+            .service(create_order)
     })
     .bind(&bind)?
     .run()

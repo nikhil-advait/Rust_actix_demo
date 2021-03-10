@@ -1,5 +1,8 @@
+
 use chrono::{NaiveDateTime, NaiveDate};
-use diesel::prelude::*;
+use diesel::{ prelude::*};
+use models::{Order, OrderItem};
+use models::NewOrderItem;
 use uuid::Uuid;
 
 use crate::models;
@@ -39,10 +42,65 @@ pub fn insert_new_user(
         last_name: last_n.to_owned(),
         email: email_str.to_owned(),
         password: passwd.to_owned(),
-        created_at: NaiveDate::from_ymd(2016, 7, 8).and_hms(9, 10, 11)
+        created_at: chrono::offset::Utc::now().naive_utc()
     };
 
     diesel::insert_into(users).values(&new_user).execute(conn)?;
 
     Ok(new_user)
+}
+
+/// Run query using Diesel to insert a new database row and return the result.
+pub fn insert_new_order(
+    // prevent collision with `name` column imported inside the function
+    order_id_arg: uuid::Uuid,
+    user_id_arg: uuid::Uuid,
+    note_arg: Option<String>,
+    conn: &PgConnection,
+) -> Result<models::Order, diesel::result::Error> {
+    // It is common when using Diesel with Actix web to import schema-related
+    // modules inside a function's scope (rather than the normal module's scope)
+    // to prevent import collisions and namespace pollution.
+    use crate::schema::orders::dsl::*;
+
+    let new_order = models::Order {
+        order_id: order_id_arg,
+        user_id: user_id_arg,
+        note: note_arg,
+        created_at: chrono::offset::Utc::now().naive_utc()
+    };
+
+    diesel::insert_into(orders).values(&new_order).execute(conn)?;
+
+    Ok(new_order)
+}
+
+/// Run query using Diesel to insert a new database row and return the result.
+pub fn insert_new_order_items(
+    // prevent collision with `name` column imported inside the function
+    order_id_arg: uuid::Uuid,
+    order_items_arg: Vec<NewOrderItem>,
+    conn: &PgConnection,
+) -> Result<bool, diesel::result::Error> {
+    // It is common when using Diesel with Actix web to import schema-related
+    // modules inside a function's scope (rather than the normal module's scope)
+    // to prevent import collisions and namespace pollution.
+    use crate::schema::order_items::dsl::*;
+
+
+    let new_order_items: Vec<OrderItem> = order_items_arg.iter().map(|oi| {
+        OrderItem {
+            item_id: Uuid::new_v4(),
+            order_id: order_id_arg,
+            description: oi.description.clone(),
+            qty: oi.qty,
+            price: oi.price,
+            created_at: chrono::offset::Utc::now().naive_utc()
+
+        }
+    }).collect::<Vec<_>>();
+
+    diesel::insert_into(order_items).values(&new_order_items).execute(conn)?;
+
+    Ok(true)
 }

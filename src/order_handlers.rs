@@ -7,12 +7,10 @@ use actix_web::{get, post, web, Error, HttpResponse};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use uuid::Uuid;
-
-use crate::models;
 use crate::actions;
+use crate::models;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
-
 
 /// Inserts new user with name defined in form.
 #[post("/api/v1/orders")]
@@ -38,13 +36,12 @@ pub async fn create_order(
 
     let conn2 = pool.get().expect("couldn't get db connection from pool");
 
-    let flag =
-        web::block(move || actions::insert_new_order_items(order_id, form.items.clone(), &conn2))
-            .await
-            .map_err(|e| {
-                eprintln!("{}", e);
-                HttpResponse::InternalServerError().finish()
-            })?;
+    web::block(move || actions::insert_new_order_items(order_id, form.items.clone(), &conn2))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
 
     Ok(HttpResponse::Ok().json(order))
 }
@@ -82,14 +79,14 @@ pub async fn get_order(
     let order = web::block(move || actions::find_order_by_uid(user_uid, &conn))
         .await
         .map_err(|e| {
-            eprintln!("{}", e);
+            eprintln!("Some error occurred =====> {}", e);
             HttpResponse::InternalServerError().finish()
         })?;
 
-    if true {
+    if let Some(order) = order {
         Ok(HttpResponse::Ok().json(order))
     } else {
-        let res = HttpResponse::NotFound().body(format!("No user found with uid: {}", user_uid));
+        let res = HttpResponse::NotFound().body(format!("No order found with uid: {}", user_uid));
         Ok(res)
     }
 }

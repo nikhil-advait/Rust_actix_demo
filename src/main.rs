@@ -10,11 +10,12 @@ use actix_web::{get, middleware, post, web, App, Error, HttpResponse, HttpServer
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use uuid::Uuid;
-
+use serde::{Deserialize, Serialize};
 mod actions;
 mod models;
 mod schema;
 mod order_handlers;
+mod token_utils;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -67,7 +68,15 @@ async fn add_user(
         HttpResponse::InternalServerError().finish()
     })?;
 
-    Ok(HttpResponse::Ok().json(user))
+    let token_str = token_utils::generate_token(user.user_id);
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct JWTResponse {
+        token: String
+    }
+
+    Ok(HttpResponse::Ok().json(JWTResponse{
+        token: token_str
+    }))
 }
 
 

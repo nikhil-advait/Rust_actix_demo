@@ -50,5 +50,24 @@ pub struct NewOrderItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewOrder {
     pub note: Option<String>,
-    pub items: Vec<NewOrderItem>,
+    pub items: Vec<NewOrderItem>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderItemDetails {
+    pub item_id: uuid::Uuid,
+    pub description: String,
+    pub qty: i32,
+    pub price: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderDetails {
+    pub order_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub note: Option<String>,
+    pub order_total: i64,
+    pub order_at: chrono::NaiveDateTime,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub items: Option<Vec<OrderItemDetails>>
 }

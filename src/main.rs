@@ -106,6 +106,53 @@ async fn create_order(
     Ok(HttpResponse::Ok().json(order))
 }
 
+#[get("/api/v1/orders")]
+async fn get_order_details_for_user(pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let order_details = web::block(move || actions::find_all_orders(&conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    if true {
+        Ok(HttpResponse::Ok().json(order_details))
+    } else {
+        let res = HttpResponse::NotFound().body(format!("No user found with uid"));
+        Ok(res)
+    }
+}
+
+/// Finds user by UID.
+#[get("/api/v1/orders/{order_id}")]
+async fn get_order(
+    pool: web::Data<DbPool>,
+    order_uid: web::Path<Uuid>,
+) -> Result<HttpResponse, Error> {
+    let user_uid = order_uid.into_inner();
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let order = web::block(move || actions::find_order_by_uid(user_uid, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    if true {
+        Ok(HttpResponse::Ok().json(order))
+    } else {
+        let res = HttpResponse::NotFound().body(format!("No user found with uid: {}", user_uid));
+        Ok(res)
+    }
+}
+
+
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_web=info");
@@ -130,8 +177,10 @@ async fn main() -> std::io::Result<()> {
             .data(pool.clone())
             .wrap(middleware::Logger::default())
             .service(get_user)
+            .service(get_order)
             .service(add_user)
             .service(create_order)
+            .service(get_order_details_for_user)
     })
     .bind(&bind)?
     .run()

@@ -68,7 +68,7 @@ async fn add_user(
         HttpResponse::InternalServerError().finish()
     })?;
 
-    let token_str = token_utils::generate_token(user.user_id);
+    let token_str = token_utils::generate_jwt(user.user_id);
     #[derive(Debug, Clone, Serialize, Deserialize)]
     struct JWTResponse {
         token: String

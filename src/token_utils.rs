@@ -16,7 +16,7 @@ struct UserToken {
     pub user_id: uuid::Uuid,
 }
 
-pub fn generate_token(uid: uuid::Uuid) -> String {
+pub fn generate_jwt(uid: uuid::Uuid) -> String {
     let now = Utc::now().timestamp_nanos() / 1_000_000_000; // nanosecond -> second
     let payload = UserToken {
         iat: now,
@@ -32,7 +32,7 @@ pub fn generate_token(uid: uuid::Uuid) -> String {
     .unwrap()
 }
 
-pub fn decode_token_and_get_user_id(token: String) -> Result<uuid::Uuid, Box<dyn Error>> {
+pub fn decode_jwt_and_get_user_id(token: String) -> Result<uuid::Uuid, Box<dyn Error>> {
     let token_data = jsonwebtoken::decode::<UserToken>(&token, &DecodingKey::from_secret(&KEY), &Validation::default())?;
     Ok(token_data.claims.user_id)
 }

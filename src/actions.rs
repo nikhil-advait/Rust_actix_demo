@@ -1,12 +1,10 @@
 use std::collections::HashMap;
-use std::error::Error;
-use actix_web::rt::blocking::BlockingError;
 use diesel::prelude::*;
 use models::NewOrderItem;
 use models::{Order, OrderDetails, OrderItem, OrderItemDetails};
 use uuid::Uuid;
 
-use crate::models;
+use crate::{models, token_utils};
 
 /// Run query using Diesel to find user by uid and return it.
 pub fn find_user_by_uid(
@@ -21,6 +19,31 @@ pub fn find_user_by_uid(
         .optional()?;
 
     Ok(user)
+}
+
+pub fn find_user_id_by_jwt(
+    jwt: String,
+    conn: &PgConnection,
+) -> Result<uuid::Uuid, diesel::result::Error> {
+
+    let user_id = token_utils::decode_jwt_and_get_user_id(jwt)
+    .map_err(|e| {
+        eprintln!("print jwt error {}", e);
+        if e.to_string() == "InvalidToken" {
+            println!("hello there")
+        }
+        diesel::result::Error::NotFound
+        // Err("invalid Token".into())
+    })?;
+
+    let user_option = find_user_by_uid(user_id, conn)?;
+
+    if let Some(user) = user_option {
+        Ok(user.user_id)
+    } else {
+        Err(diesel::result::Error::NotFound)
+    }
+    
 }
 
 pub fn find_order_by_uid(

@@ -3,8 +3,18 @@ use diesel::prelude::*;
 use models::NewOrderItem;
 use models::{Order, OrderDetails, OrderItem, OrderItemDetails};
 use uuid::Uuid;
+use actix_web::{Error};
+use actix_web::error::*;
+use actix_web::http::StatusCode;
 
 use crate::{models, token_utils};
+
+
+#[derive(Debug)]
+pub enum CustomErr {
+    S(String),
+    D(diesel::result::Error)
+}
 
 /// Run query using Diesel to find user by uid and return it.
 pub fn find_user_by_uid(
@@ -49,7 +59,7 @@ pub fn find_user_id_by_jwt(
 pub fn find_order_by_uid(
     uid: Uuid,
     conn: &PgConnection,
-) -> Result<Option<OrderDetails>, diesel::result::Error> {
+) -> Result<OrderDetails, StatusCode> {
     use crate::schema::orders::dsl::*;
     //use crate::schema::orders::dsl::{order_id as }
     use crate::schema::order_items::dsl::*;
@@ -58,10 +68,10 @@ pub fn find_order_by_uid(
         .inner_join(order_items)
         .filter(crate::schema::orders::dsl::order_id.eq(uid))
         .into_boxed()
-        .get_results(conn)?;
+        .get_results(conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if vec.len() == 0 {
-        return Ok(None);
+        return Err(StatusCode::NOT_FOUND);
     }
         
     let order = vec[0].0.clone();
@@ -98,17 +108,19 @@ pub fn find_order_by_uid(
         ret_value
     );
 
-    Ok(Some(ret_value))
+    Ok(ret_value)
 }
 
-pub fn find_all_orders(conn: &PgConnection) -> Result<Vec<OrderDetails>, diesel::result::Error> {
+pub fn find_all_orders(conn: &PgConnection) -> Result<Vec<OrderDetails>, CustomErr> {
     use crate::schema::order_items::dsl::*;
     use crate::schema::orders::dsl::*;
 
     let vec: Vec<(Order, OrderItem)> = orders
         .inner_join(order_items)
         .into_boxed()
-        .get_results(conn)?;
+        .get_results(conn).map_err(|e| {
+            CustomErr::D(e)
+        })?;
 
     let mut dictionary: HashMap<&uuid::Uuid, OrderDetails> = HashMap::new();
 
@@ -135,11 +147,6 @@ pub fn find_all_orders(conn: &PgConnection) -> Result<Vec<OrderDetails>, diesel:
     });
 
     let vec_of_order_details: Vec<OrderDetails> = dictionary.values().cloned().collect();
-
-    println!(
-        "returned value:=======================================> {:?}",
-        vec_of_order_details
-    );
 
     Ok(vec_of_order_details)
 }

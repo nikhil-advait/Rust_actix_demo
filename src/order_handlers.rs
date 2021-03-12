@@ -3,12 +3,14 @@
 //! Diesel does not support tokio, so we have to run it in separate threads using the web::block
 //! function which offloads blocking code (like Diesel's) in order to not block the server's thread.
 
-use actix_web::{get, post, web, Error, HttpResponse, HttpRequest};
+use crate::actions;
+use crate::models;
+use actix_web::error::*;
+use actix_web::http::StatusCode;
+use actix_web::{get, post, web, Error, HttpRequest, HttpResponse};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use uuid::Uuid;
-use crate::actions;
-use crate::models;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -30,7 +32,6 @@ pub async fn create_order(
     println!("jwt token from header: {:?}", jwt_token);
 
     let jwt_token = jwt_token.unwrap().to_str().unwrap().into();
-    
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let order = web::block(move || {
@@ -70,8 +71,9 @@ pub async fn get_order_details_for_user(pool: web::Data<DbPool>) -> Result<HttpR
     if true {
         Ok(HttpResponse::Ok().json(order_details))
     } else {
-        let res = HttpResponse::NotFound().body(format!("No user found with uid"));
-        Ok(res)
+        //let res = HttpResponse::NotFound().body(format!("No user found with uid"));
+        // Ok(res);
+        Err(actix_web::error::ErrorNotFound("some issue"))
     }
 }
 
@@ -88,14 +90,13 @@ pub async fn get_order(
     let order = web::block(move || actions::find_order_by_uid(user_uid, &conn))
         .await
         .map_err(|e| {
-            eprintln!("Some error occurred =====> {}", e);
-            HttpResponse::InternalServerError().finish()
+            match e {
+                BlockingError::Error(StatusCode::NOT_FOUND) => {
+                    actix_web::error::ErrorNotFound("not found error eeeee")
+                }
+                _ => actix_web::error::ErrorInternalServerError("xxx"),
+            }
         })?;
 
-    if let Some(order) = order {
-        Ok(HttpResponse::Ok().json(order))
-    } else {
-        let res = HttpResponse::NotFound().body(format!("No order found with uid: {}", user_uid));
-        Ok(res)
-    }
+    Ok(HttpResponse::Ok().json(order))
 }

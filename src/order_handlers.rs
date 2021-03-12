@@ -3,7 +3,7 @@
 //! Diesel does not support tokio, so we have to run it in separate threads using the web::block
 //! function which offloads blocking code (like Diesel's) in order to not block the server's thread.
 
-use actix_web::{get, post, web, Error, HttpResponse};
+use actix_web::{get, post, web, Error, HttpResponse, HttpRequest};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use uuid::Uuid;
@@ -15,22 +15,31 @@ type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 /// Inserts new user with name defined in form.
 #[post("/api/v1/orders")]
 pub async fn create_order(
+    req: HttpRequest,
     pool: web::Data<DbPool>,
     form: web::Json<models::NewOrder>,
 ) -> Result<HttpResponse, Error> {
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     let order_id = Uuid::new_v4();
-    let user_id = Uuid::parse_str("a16aec39-1668-4d4b-a5dd-4488093acc7b").unwrap();
+    //let user_id = Uuid::parse_str("a16aec39-1668-4d4b-a5dd-4488093acc7b").unwrap();
     let note_option = form.note.clone();
+
+    let jwt_token = req.headers().get("access_token");
+
+    println!("jwt token from header: {:?}", jwt_token);
+
+    let jwt_token = jwt_token.unwrap().to_str().unwrap().into();
+    
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let order = web::block(move || {
+        let user_id = actions::find_user_id_by_jwt(jwt_token, &conn)?;
         actions::insert_new_order(order_id.clone(), user_id, note_option, &conn)
     })
     .await
     .map_err(|e| {
-        eprintln!("{}", e);
+        eprintln!("Print error {}", e);
         HttpResponse::InternalServerError().finish()
     })?;
 

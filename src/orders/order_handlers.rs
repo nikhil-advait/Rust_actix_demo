@@ -8,8 +8,9 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use uuid::Uuid;
 
-use crate::actions;
-use crate::models;
+#[path = "./order_models.rs"] mod models;
+#[path = "./order_actions.rs"] mod actions;
+#[path = "../users/user_actions.rs"] mod user_actions;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -18,7 +19,7 @@ type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 pub async fn create_order(
     req: HttpRequest,
     pool: web::Data<DbPool>,
-    body: web::Json<models::NewOrder>,
+    body: web::Json<actions::models::NewOrder>,
 ) -> Result<HttpResponse, Error> {
     let conn = pool
         .get()
@@ -32,7 +33,7 @@ pub async fn create_order(
     // use web::block to offload blocking Diesel code without blocking server thread
     let order = web::block(move || {
         // Todo: Convert authenticate_request function to actix middleware.
-        let user_id = actions::authenticate_request(jwt_header, &conn)?;
+        let user_id = user_actions::authenticate_request(jwt_header, &conn)?;
         let order = actions::insert_new_order(order_id.clone(), user_id, note_option, &conn);
         actions::insert_new_order_items(order_id, &body.items, &conn)?;
         order
@@ -64,7 +65,7 @@ pub async fn get_order_details_for_user(
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let order_details = web::block(move || {
-        let user_id = actions::authenticate_request(jwt_header, &conn)?;
+        let user_id = user_actions::authenticate_request(jwt_header, &conn)?;
 
         actions::find_all_orders_for_user(user_id, &conn)
     })
@@ -94,7 +95,7 @@ pub async fn get_order(
     // use web::block to offload blocking Diesel code without blocking server thread
     let order = web::block(move || {
         // Todo: Convert authenticate_request function to actix middleware.
-        let user_id = actions::authenticate_request(jwt_header, &conn)?;
+        let user_id = user_actions::authenticate_request(jwt_header, &conn)?;
 
         actions::find_order_by_id(user_id, order_id, &conn)
     })

@@ -14,9 +14,12 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use serde::Serialize;
 
-use crate::actions;
-use crate::models;
-use crate::token_utils;
+
+#[path = "./user_models.rs"] mod models;
+#[path = "./user_actions.rs"] mod actions;
+
+#[path = "./token_utils.rs"] mod token_utils;
+
 #[derive(Debug, Clone, Serialize)]
 struct JWTResponse {
     token: String,

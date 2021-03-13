@@ -3,9 +3,7 @@ use diesel::prelude::*;
 use models::NewOrderItem;
 use models::{Order, OrderDetails, OrderItem, OrderItemDetails};
 use uuid::Uuid;
-use actix_web::{Error};
-use actix_web::error::*;
-use actix_web::http::StatusCode;
+use actix_web::http::{StatusCode, HeaderValue};
 
 use crate::{models, token_utils};
 
@@ -31,28 +29,22 @@ pub fn find_user_by_uid(
     Ok(user)
 }
 
-pub fn find_user_id_by_jwt(
-    jwt: String,
+pub fn authenticate_request(
+    header: Option<HeaderValue>,
     conn: &PgConnection,
-) -> Result<uuid::Uuid, diesel::result::Error> {
+) -> Result<uuid::Uuid, StatusCode> {
 
-    let user_id = token_utils::decode_jwt_and_get_user_id(jwt)
-    .map_err(|e| {
-        eprintln!("print jwt error {}", e);
-        if e.to_string() == "InvalidToken" {
-            println!("hello there")
-        }
-        diesel::result::Error::NotFound
-        // Err("invalid Token".into())
-    })?;
+    // let jwt_token = header.unwrap().to_str().unwrap().into();
 
-    let user_option = find_user_by_uid(user_id, conn)?;
+    let v = header.ok_or(StatusCode::UNAUTHORIZED)?;
+    let jwt_str = v.to_str().map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-    if let Some(user) = user_option {
-        Ok(user.user_id)
-    } else {
-        Err(diesel::result::Error::NotFound)
-    }
+    let user_id = token_utils::decode_jwt_and_get_user_id(jwt_str)
+    .map_err(|e| StatusCode::UNAUTHORIZED)?;
+
+    let user_option = find_user_by_uid(user_id, conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    user_option.map(|u| u.user_id).ok_or(StatusCode::NOT_FOUND)
     
 }
 
@@ -186,7 +178,7 @@ pub fn insert_new_order(
     user_id_arg: uuid::Uuid,
     note_arg: Option<String>,
     conn: &PgConnection,
-) -> Result<models::Order, diesel::result::Error> {
+) -> Result<models::Order, StatusCode> {
     // It is common when using Diesel with Actix web to import schema-related
     // modules inside a function's scope (rather than the normal module's scope)
     // to prevent import collisions and namespace pollution.
@@ -201,7 +193,7 @@ pub fn insert_new_order(
 
     diesel::insert_into(orders)
         .values(&new_order)
-        .execute(conn)?;
+        .execute(conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(new_order)
 }

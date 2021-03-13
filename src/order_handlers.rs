@@ -5,7 +5,7 @@
 
 use crate::actions;
 use crate::models;
-use actix_web::error::*;
+use actix_web::error::{ErrorNotFound, ErrorInternalServerError, ErrorUnauthorized, BlockingError};
 use actix_web::http::StatusCode;
 use actix_web::{get, post, web, Error, HttpRequest, HttpResponse};
 use diesel::prelude::*;
@@ -27,21 +27,22 @@ pub async fn create_order(
     //let user_id = Uuid::parse_str("a16aec39-1668-4d4b-a5dd-4488093acc7b").unwrap();
     let note_option = form.note.clone();
 
-    let jwt_token = req.headers().get("access_token");
+    let jwt_header = req.headers().get("access_token").cloned();
 
-    println!("jwt token from header: {:?}", jwt_token);
-
-    let jwt_token = jwt_token.unwrap().to_str().unwrap().into();
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let order = web::block(move || {
-        let user_id = actions::find_user_id_by_jwt(jwt_token, &conn)?;
+        let user_id = actions::authenticate_request(jwt_header, &conn)?;
         actions::insert_new_order(order_id.clone(), user_id, note_option, &conn)
     })
     .await
     .map_err(|e| {
         eprintln!("Print error {}", e);
-        HttpResponse::InternalServerError().finish()
+        match e {
+            BlockingError::Error(StatusCode::UNAUTHORIZED) => ErrorUnauthorized("Provide proper access token"),
+            BlockingError::Error(StatusCode::NOT_FOUND) => ErrorNotFound("User could not be found to create new order."),
+            _ => actix_web::error::ErrorInternalServerError("Something unexpected happened. Please retry"),
+        }
     })?;
 
     let conn2 = pool.get().expect("couldn't get db connection from pool");
@@ -63,18 +64,10 @@ pub async fn get_order_details_for_user(pool: web::Data<DbPool>) -> Result<HttpR
     // use web::block to offload blocking Diesel code without blocking server thread
     let order_details = web::block(move || actions::find_all_orders(&conn))
         .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
+        .map_err(|e| { ErrorInternalServerError("Something unexpected happened. Please retry")})?;
 
-    if true {
         Ok(HttpResponse::Ok().json(order_details))
-    } else {
-        //let res = HttpResponse::NotFound().body(format!("No user found with uid"));
-        // Ok(res);
-        Err(actix_web::error::ErrorNotFound("some issue"))
-    }
+    
 }
 
 /// Finds user by UID.
@@ -91,10 +84,8 @@ pub async fn get_order(
         .await
         .map_err(|e| {
             match e {
-                BlockingError::Error(StatusCode::NOT_FOUND) => {
-                    actix_web::error::ErrorNotFound("not found error eeeee")
-                }
-                _ => actix_web::error::ErrorInternalServerError("xxx"),
+                BlockingError::Error(StatusCode::NOT_FOUND) => ErrorNotFound("Order id not correct."),
+                _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
             }
         })?;
 

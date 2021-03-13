@@ -32,7 +32,7 @@ pub fn generate_jwt(uid: uuid::Uuid) -> String {
     .unwrap()
 }
 
-pub fn decode_jwt_and_get_user_id(token: String) -> Result<uuid::Uuid, Box<dyn Error>> {
-    let token_data = jsonwebtoken::decode::<UserToken>(&token, &DecodingKey::from_secret(&KEY), &Validation::default())?;
+pub fn decode_jwt_and_get_user_id(token: &str) -> Result<uuid::Uuid, Box<dyn Error>> {
+    let token_data = jsonwebtoken::decode::<UserToken>(token, &DecodingKey::from_secret(&KEY), &Validation::default())?;
     Ok(token_data.claims.user_id)
 }

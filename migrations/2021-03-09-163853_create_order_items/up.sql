@@ -8,3 +8,5 @@ CREATE TABLE order_items
     price           integer                     NOT NULL CHECK (qty > 0),
     created_at      timestamp with time zone    NOT NULL
 )
+
+CREATE INDEX order_id_index ON order_items (order_id);

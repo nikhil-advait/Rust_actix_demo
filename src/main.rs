@@ -1,8 +1,3 @@
-//! Actix web Diesel integration example
-//!
-//! Diesel does not support tokio, so we have to run it in separate threads using the web::block
-//! function which offloads blocking code (like Diesel's) in order to not block the server's thread.
-
 #[macro_use]
 extern crate diesel;
 
@@ -24,7 +19,7 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
 
     // set up database connection pool
-    let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in environment variable");
     let manager = ConnectionManager::<PgConnection>::new(connspec);
     let pool = r2d2::Pool::builder()
         .build(manager)

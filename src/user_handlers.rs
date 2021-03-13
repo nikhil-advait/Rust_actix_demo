@@ -24,28 +24,29 @@ struct JWTResponse {
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-/// Inserts new user with name defined in form.
+/// Register new user.
 #[post("/api/v1/auth/register")]
 async fn register_user(
     pool: web::Data<DbPool>,
-    form: web::Json<models::NewUser>,
+    body: web::Json<models::NewUser>,
 ) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
+    let conn = pool.get().map_err(|_| ErrorInternalServerError("couldn't get db connection from pool. Please retry."))?;
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let user = web::block(move || {
         // Check if user with email id is already present. If yes, then return error.
-        let user_option = actions::find_user_by_email(&form.email, &conn)?;
+        let user_option = actions::find_user_by_email(&body.email, &conn)?;
 
         if user_option.is_some() {
             return Err(StatusCode::CONFLICT);
         }
 
         actions::insert_new_user(
-            &form.first_name,
-            &form.last_name,
-            &form.email,
-            &form.password,
+            &body.first_name,
+            &body.last_name,
+            &body.email,
+            // WARNING: Never put plain text password in db. Always encrypt them. This is just for demostration purpose.
+            &body.password,
             &conn,
         )
     })
@@ -65,21 +66,21 @@ async fn register_user(
     Ok(HttpResponse::Ok().json(JWTResponse { token: token_str }))
 }
 
-/// Inserts new user with name defined in form.
+/// Verify credentials and return JWT token.
 #[post("/api/v1/auth/login")]
 async fn login_user(
     pool: web::Data<DbPool>,
-    form: web::Json<models::UserLogin>
+    body: web::Json<models::UserLogin>
 ) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
+    let conn = pool.get().map_err(|_| ErrorInternalServerError("couldn't get db connection from pool. Please retry."))?;
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let user = web::block(move || {
-        // Check if user with email id is already present. If yes, then return error.
-        let user_option = actions::find_user_by_email(&form.email, &conn)?;
+        let user_option = actions::find_user_by_email(&body.email, &conn)?;
 
         if let Some(user) = user_option {
-            if user.password != form.password {
+            if user.password != body.password {
+                // Passwords don't match
                 return Err(StatusCode::FORBIDDEN);
             } else {
                 return Ok(user);

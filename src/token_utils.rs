@@ -1,10 +1,11 @@
 use chrono::Utc;
-use jsonwebtoken::{EncodingKey, DecodingKey, TokenData, Header, Validation};
+use jsonwebtoken::{EncodingKey, DecodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
 static ONE_WEEK: i64 = 60 * 60 * 24 * 7; // in seconds
-static KEY: &[u8] = b"secret";
+// Todo: To load this secret from environment variable.
+static KEY: &[u8] = b"some_secret_key";
 
 #[derive(Serialize, Deserialize)]
 struct UserToken {
@@ -16,6 +17,7 @@ struct UserToken {
     pub user_id: uuid::Uuid,
 }
 
+/// Create jwt token by making use of user id.
 pub fn generate_jwt(uid: uuid::Uuid) -> String {
     let now = Utc::now().timestamp_nanos() / 1_000_000_000; // nanosecond -> second
     let payload = UserToken {
@@ -31,6 +33,7 @@ pub fn generate_jwt(uid: uuid::Uuid) -> String {
     )
     .unwrap()
 }
+
 
 pub fn decode_jwt_and_get_user_id(token: &str) -> Result<uuid::Uuid, Box<dyn Error>> {
     let token_data = jsonwebtoken::decode::<UserToken>(token, &DecodingKey::from_secret(&KEY), &Validation::default())?;

@@ -7,25 +7,30 @@ use uuid::Uuid;
 
 use crate::{models, token_utils};
 
-/// Run query using Diesel to find user by uid and return it.
+/// Find user by user_id. If not found then return None.
 pub fn find_user_by_uid(
     uid: Uuid,
     conn: &PgConnection,
-) -> Result<Option<models::User>, diesel::result::Error> {
+) -> Result<Option<models::User>, StatusCode> {
     use crate::schema::users::dsl::*;
 
     let user = users
         .filter(user_id.eq(uid))
         .first::<models::User>(conn)
-        .optional()?;
+        .optional()
+        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(user)
 }
 
+/// Find user by email. If not found then return None.
 pub fn find_user_by_email(
     email_str: &str,
     conn: &PgConnection,
 ) -> Result<Option<models::User>, StatusCode> {
+    // It is common when using Diesel with Actix web to import schema-related
+    // modules inside a function's scope (rather than the normal module's scope)
+    // to prevent import collisions and namespace pollution.
     use crate::schema::users::dsl::*;
 
     let user = users
@@ -37,11 +42,12 @@ pub fn find_user_by_email(
     Ok(user)
 }
 
+/// Extract user_id from jwt token and verify in db that user by that user_id exists.
+/// This should ideally have been authentication middleware of actix. Todo.
 pub fn authenticate_request(
     header: Option<HeaderValue>,
     conn: &PgConnection,
 ) -> Result<uuid::Uuid, StatusCode> {
-    // let jwt_token = header.unwrap().to_str().unwrap().into();
 
     let v = header.ok_or(StatusCode::UNAUTHORIZED)?;
     let jwt_str = v.to_str().map_err(|_| StatusCode::UNAUTHORIZED)?;
@@ -55,7 +61,11 @@ pub fn authenticate_request(
     user_option.map(|u| u.user_id).ok_or(StatusCode::NOT_FOUND)
 }
 
+/// Find order corresponding to given user_id and order_id.
 pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Result<OrderDetails, StatusCode> {
+    // It is common when using Diesel with Actix web to import schema-related
+    // modules inside a function's scope (rather than the normal module's scope)
+    // to prevent import collisions and namespace pollution.
     use crate::schema::orders::dsl::*;
     use crate::schema::order_items::dsl::*;
 
@@ -67,10 +77,12 @@ pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Re
         .get_results(conn)
         .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // If vec is empty. Then return not found error.
     if vec.len() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
 
+    // Order is common for all tuples in vector. Hence taking first one.
     let order = vec[0].0.clone();
 
     let mut ret_value: OrderDetails = OrderDetails {
@@ -79,12 +91,14 @@ pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Re
         note: order.note,
         order_total: 0,
         order_at: order.created_at,
+        // Mark items as None initially. This will be set to below again.
         items: None, //vec![]
     };
 
     let mut order_total: i64 = 0;
     let mut order_item_details_vec: Vec<OrderItemDetails> = vec![];
 
+    // Iterate over all tuples and calcuate order_total. Also collect orter_items.
     vec.iter().for_each(|tup| {
         let order_item = tup.1.clone();
         order_total = order_total + i64::from(order_item.qty * order_item.price);
@@ -100,15 +114,11 @@ pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Re
     ret_value.order_total = order_total;
     ret_value.items = Some(order_item_details_vec);
 
-    println!(
-        "returned value:=======================================> {:?}",
-        ret_value
-    );
-
     Ok(ret_value)
 }
 
-pub fn find_all_orders(uid: Uuid, conn: &PgConnection) -> Result<Vec<OrderDetails>, StatusCode> {
+/// Find all orders for a user_id (from jwt).
+pub fn find_all_orders_for_user(uid: Uuid, conn: &PgConnection) -> Result<Vec<OrderDetails>, StatusCode> {
     use crate::schema::order_items::dsl::*;
     use crate::schema::orders::dsl::*;
 
@@ -125,6 +135,7 @@ pub fn find_all_orders(uid: Uuid, conn: &PgConnection) -> Result<Vec<OrderDetail
         let order = &tup.0;
         let order_item = &tup.1;
         match dictionary.get_mut(&order.order_id) {
+            // Insert record in hashmap for the first time.
             None => dictionary.insert(
                 &order.order_id,
                 OrderDetails {
@@ -136,6 +147,7 @@ pub fn find_all_orders(uid: Uuid, conn: &PgConnection) -> Result<Vec<OrderDetail
                     items: None,
                 },
             ),
+            // Update order_total for subsequent orders.
             Some(od) => {
                 od.order_total = od.order_total + i64::from(order_item.qty + order_item.price);
                 None
@@ -148,9 +160,8 @@ pub fn find_all_orders(uid: Uuid, conn: &PgConnection) -> Result<Vec<OrderDetail
     Ok(vec_of_order_details)
 }
 
-/// Run query using Diesel to insert a new database row and return the result.
+/// Insert new user in db as part of new user registration.
 pub fn insert_new_user(
-    // prevent collision with `name` column imported inside the function
     first_n: &str,
     last_n: &str,
     email_str: &str,
@@ -176,9 +187,7 @@ pub fn insert_new_user(
     Ok(new_user)
 }
 
-/// Run query using Diesel to insert a new database row and return the result.
 pub fn insert_new_order(
-    // prevent collision with `name` column imported inside the function
     order_id_arg: uuid::Uuid,
     user_id_arg: uuid::Uuid,
     note_arg: Option<String>,
@@ -204,10 +213,9 @@ pub fn insert_new_order(
     Ok(new_order)
 }
 
-/// Run query using Diesel to insert a new database row and return the result.
 pub fn insert_new_order_items(
     order_id_arg: uuid::Uuid,
-    order_items_arg: Vec<NewOrderItem>,
+    order_items_arg: &Vec<NewOrderItem>,
     conn: &PgConnection,
 ) -> Result<bool, StatusCode> {
     // It is common when using Diesel with Actix web to import schema-related

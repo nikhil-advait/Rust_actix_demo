@@ -74,6 +74,7 @@ pub struct OrderDetails {
     pub note: Option<String>,
     pub order_total: i64,
     pub order_at: chrono::NaiveDateTime,
+    // Items will be skipped when serialized if it is null.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub items: Option<Vec<OrderItemDetails>>
 }

@@ -55,13 +55,14 @@ pub fn authenticate_request(
     user_option.map(|u| u.user_id).ok_or(StatusCode::NOT_FOUND)
 }
 
-pub fn find_order_by_uid(uid: Uuid, conn: &PgConnection) -> Result<OrderDetails, StatusCode> {
+pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Result<OrderDetails, StatusCode> {
     use crate::schema::orders::dsl::*;
     use crate::schema::order_items::dsl::*;
 
     let vec: Vec<(Order, OrderItem)> = orders
         .inner_join(order_items)
-        .filter(crate::schema::orders::dsl::order_id.eq(uid))
+        .filter(crate::schema::orders::dsl::user_id.eq(user_id_arg))
+        .filter(crate::schema::orders::dsl::order_id.eq(oid))
         .into_boxed()
         .get_results(conn)
         .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;

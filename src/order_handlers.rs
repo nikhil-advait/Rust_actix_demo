@@ -69,13 +69,11 @@ pub async fn get_order_details_for_user(
         actions::find_all_orders(user_id, &conn)
     })
     .await
-    .map_err(|e| {
-        match e {
-            BlockingError::Error(StatusCode::UNAUTHORIZED) => {
-                ErrorUnauthorized("Provide proper access token")
-            }
-            _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
+    .map_err(|e| match e {
+        BlockingError::Error(StatusCode::UNAUTHORIZED) => {
+            ErrorUnauthorized("Provide proper access token")
         }
+        _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
     })?;
 
     Ok(HttpResponse::Ok().json(order_details))
@@ -84,19 +82,30 @@ pub async fn get_order_details_for_user(
 /// Finds user by UID.
 #[get("/api/v1/orders/{order_id}")]
 pub async fn get_order(
+    req: HttpRequest,
     pool: web::Data<DbPool>,
     order_uid: web::Path<Uuid>,
 ) -> Result<HttpResponse, Error> {
-    let user_uid = order_uid.into_inner();
     let conn = pool.get().expect("couldn't get db connection from pool");
 
+    let order_id = order_uid.into_inner();
+    let jwt_header = req.headers().get("access_token").cloned();
+
     // use web::block to offload blocking Diesel code without blocking server thread
-    let order = web::block(move || actions::find_order_by_uid(user_uid, &conn))
-        .await
-        .map_err(|e| match e {
-            BlockingError::Error(StatusCode::NOT_FOUND) => ErrorNotFound("Order id not correct."),
-            _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
-        })?;
+    let order = web::block(move || {
+        // Todo: Convert authenticate_request function to actix middleware.
+        let user_id = actions::authenticate_request(jwt_header, &conn)?;
+
+        actions::find_order_by_id(user_id, order_id, &conn)
+    })
+    .await
+    .map_err(|e| match e {
+        BlockingError::Error(StatusCode::UNAUTHORIZED) => {
+            ErrorUnauthorized("Provide proper access token")
+        }
+        BlockingError::Error(StatusCode::NOT_FOUND) => ErrorNotFound("Order id not correct(or not present) for the user in access_token."),
+        _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
+    })?;
 
     Ok(HttpResponse::Ok().json(order))
 }

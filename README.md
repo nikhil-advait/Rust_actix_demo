@@ -1,3 +1,8 @@
+## Setup Instructions
+
+1. Postgres should be installed and running.
+2. Rust and cargo should be installed on the system.
+3. Edit .env file in project root and update your postgres credentials there. (No need to create 'rust_ecommerce' database manually as it would be creted by diesel setup.)
 4. Install diesel cli by running command as below in the project- 
 
 ```sh

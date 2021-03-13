@@ -1,0 +1,141 @@
+{
+	"info": {
+		"_postman_id": "46209c00-c571-4c4b-ab99-631ad266d59e",
+		"name": "ecommerce_demo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"first_name\": \"nikhil2\",\n    \"last_name\": \"yeole2\",\n    \"email\": \"ny5@gmail.com\",\n    \"password\": \"secret2\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{localhost}}/api/v1/auth/register",
+					"host": [
+						"{{localhost}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"ny2@gmail.com\",\n    \"password\": \"secret2\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{localhost}}/api/v1/auth/login",
+					"host": [
+						"{{localhost}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "new order",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "access_token",
+						"value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE2MTU1NzA4MzQsImV4cCI6MTYxNjE3NTYzNCwidXNlcl9pZCI6IjAwNzZkMGJiLTY1ODYtNDhmNS1iNTRkLWZhNjVhMWQ3ODBhOCJ9.VTJLMh2FGjoVI2bUpGQvtXmbSX2zDCEsJ0rPp-ohlVU",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"items\": [{\n        \"description\": \"desc135\",\n        \"qty\": 4,\n        \"price\": 60\n    },{\n        \"description\": \"desc136\",\n        \"qty\": 6,\n        \"price\": 90\n    }]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{localhost}}/api/v1/orders",
+					"host": [
+						"{{localhost}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"orders"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get order by id",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{localhost}}/api/v1/orders/931d9215-fcb3-4ac1-a457-5b54b5526993",
+					"host": [
+						"{{localhost}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"orders",
+						"931d9215-fcb3-4ac1-a457-5b54b5526993"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get orders",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{localhost}}/api/v1/orders",
+					"host": [
+						"{{localhost}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"orders"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}

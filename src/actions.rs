@@ -18,7 +18,7 @@ pub fn find_user_by_uid(
         .filter(user_id.eq(uid))
         .first::<models::User>(conn)
         .optional()
-        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(user)
 }
@@ -37,7 +37,7 @@ pub fn find_user_by_email(
         .filter(email.eq(email_str))
         .first::<models::User>(conn)
         .optional()
-        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(user)
 }
@@ -53,10 +53,10 @@ pub fn authenticate_request(
     let jwt_str = v.to_str().map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     let user_id =
-        token_utils::decode_jwt_and_get_user_id(jwt_str).map_err(|e| StatusCode::UNAUTHORIZED)?;
+        token_utils::decode_jwt_and_get_user_id(jwt_str).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     let user_option =
-        find_user_by_uid(user_id, conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        find_user_by_uid(user_id, conn).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     user_option.map(|u| u.user_id).ok_or(StatusCode::NOT_FOUND)
 }
@@ -75,7 +75,7 @@ pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Re
         .filter(crate::schema::orders::dsl::order_id.eq(oid))
         .into_boxed()
         .get_results(conn)
-        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // If vec is empty. Then return not found error.
     if vec.len() == 0 {
@@ -127,7 +127,7 @@ pub fn find_all_orders_for_user(uid: Uuid, conn: &PgConnection) -> Result<Vec<Or
         .filter(user_id.eq(uid))
         .into_boxed()
         .get_results(conn)
-        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut dictionary: HashMap<&uuid::Uuid, OrderDetails> = HashMap::new();
 
@@ -182,7 +182,7 @@ pub fn insert_new_user(
         created_at: chrono::offset::Utc::now().naive_utc(),
     };
 
-    diesel::insert_into(users).values(&new_user).execute(conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+    diesel::insert_into(users).values(&new_user).execute(conn).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(new_user)
 }
@@ -208,7 +208,7 @@ pub fn insert_new_order(
     diesel::insert_into(orders)
         .values(&new_order)
         .execute(conn)
-        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(new_order)
 }

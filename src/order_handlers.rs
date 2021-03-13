@@ -33,7 +33,9 @@ pub async fn create_order(
     // use web::block to offload blocking Diesel code without blocking server thread
     let order = web::block(move || {
         let user_id = actions::authenticate_request(jwt_header, &conn)?;
-        actions::insert_new_order(order_id.clone(), user_id, note_option, &conn)
+        let order = actions::insert_new_order(order_id.clone(), user_id, note_option, &conn);
+        actions::insert_new_order_items(order_id, form.items.clone(), &conn)?;
+        order
     })
     .await
     .map_err(|e| {
@@ -41,18 +43,9 @@ pub async fn create_order(
         match e {
             BlockingError::Error(StatusCode::UNAUTHORIZED) => ErrorUnauthorized("Provide proper access token"),
             BlockingError::Error(StatusCode::NOT_FOUND) => ErrorNotFound("User could not be found to create new order."),
-            _ => actix_web::error::ErrorInternalServerError("Something unexpected happened. Please retry"),
+            _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
         }
     })?;
-
-    let conn2 = pool.get().expect("couldn't get db connection from pool");
-
-    web::block(move || actions::insert_new_order_items(order_id, form.items.clone(), &conn2))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
 
     Ok(HttpResponse::Ok().json(order))
 }

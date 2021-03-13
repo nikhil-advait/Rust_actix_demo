@@ -6,15 +6,16 @@
 #[macro_use]
 extern crate diesel;
 
+use actix_web::error::{BlockingError, ErrorInternalServerError, ErrorNotFound, ErrorUnauthorized};
 use actix_web::{get, middleware, post, web, App, Error, HttpResponse, HttpServer};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 mod actions;
 mod models;
-mod schema;
 mod order_handlers;
+mod schema;
 mod token_utils;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -31,17 +32,14 @@ async fn get_user(
     // use web::block to offload blocking Diesel code without blocking server thread
     let user = web::block(move || actions::find_user_by_uid(user_uid, &conn))
         .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
+        .map_err(|e| ErrorInternalServerError("Something unexpected happened. Please retry"))?;
 
-    if let Some(user) = user {
-        Ok(HttpResponse::Ok().json(user))
-    } else {
-        let res = HttpResponse::NotFound().body(format!("No user found with uid: {}", user_uid));
-        Ok(res)
-    }
+    let user = user.ok_or(ErrorNotFound(format!(
+        "No user found with uid: {}",
+        user_uid
+    )))?;
+
+    Ok(HttpResponse::Ok().json(user))
 }
 
 /// Inserts new user with name defined in form.
@@ -63,22 +61,16 @@ async fn add_user(
         )
     })
     .await
-    .map_err(|e| {
-        eprintln!("{}", e);
-        HttpResponse::InternalServerError().finish()
-    })?;
+    .map_err(|e| { ErrorInternalServerError("Something unexpected happened. Please retry")})?;
 
     let token_str = token_utils::generate_jwt(user.user_id);
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize)]
     struct JWTResponse {
-        token: String
+        token: String,
     }
 
-    Ok(HttpResponse::Ok().json(JWTResponse{
-        token: token_str
-    }))
+    Ok(HttpResponse::Ok().json(JWTResponse { token: token_str }))
 }
-
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

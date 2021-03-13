@@ -1,18 +1,11 @@
-use std::collections::HashMap;
+use actix_web::http::{HeaderValue, StatusCode};
 use diesel::prelude::*;
 use models::NewOrderItem;
 use models::{Order, OrderDetails, OrderItem, OrderItemDetails};
+use std::collections::HashMap;
 use uuid::Uuid;
-use actix_web::http::{StatusCode, HeaderValue};
 
 use crate::{models, token_utils};
-
-
-#[derive(Debug)]
-pub enum CustomErr {
-    S(String),
-    D(diesel::result::Error)
-}
 
 /// Run query using Diesel to find user by uid and return it.
 pub fn find_user_by_uid(
@@ -33,39 +26,35 @@ pub fn authenticate_request(
     header: Option<HeaderValue>,
     conn: &PgConnection,
 ) -> Result<uuid::Uuid, StatusCode> {
-
     // let jwt_token = header.unwrap().to_str().unwrap().into();
 
     let v = header.ok_or(StatusCode::UNAUTHORIZED)?;
     let jwt_str = v.to_str().map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-    let user_id = token_utils::decode_jwt_and_get_user_id(jwt_str)
-    .map_err(|e| StatusCode::UNAUTHORIZED)?;
+    let user_id =
+        token_utils::decode_jwt_and_get_user_id(jwt_str).map_err(|e| StatusCode::UNAUTHORIZED)?;
 
-    let user_option = find_user_by_uid(user_id, conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let user_option =
+        find_user_by_uid(user_id, conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     user_option.map(|u| u.user_id).ok_or(StatusCode::NOT_FOUND)
-    
 }
 
-pub fn find_order_by_uid(
-    uid: Uuid,
-    conn: &PgConnection,
-) -> Result<OrderDetails, StatusCode> {
+pub fn find_order_by_uid(uid: Uuid, conn: &PgConnection) -> Result<OrderDetails, StatusCode> {
     use crate::schema::orders::dsl::*;
-    //use crate::schema::orders::dsl::{order_id as }
     use crate::schema::order_items::dsl::*;
 
     let vec: Vec<(Order, OrderItem)> = orders
         .inner_join(order_items)
         .filter(crate::schema::orders::dsl::order_id.eq(uid))
         .into_boxed()
-        .get_results(conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .get_results(conn)
+        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if vec.len() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
-        
+
     let order = vec[0].0.clone();
 
     let mut ret_value: OrderDetails = OrderDetails {
@@ -103,16 +92,15 @@ pub fn find_order_by_uid(
     Ok(ret_value)
 }
 
-pub fn find_all_orders(conn: &PgConnection) -> Result<Vec<OrderDetails>, CustomErr> {
+pub fn find_all_orders(conn: &PgConnection) -> Result<Vec<OrderDetails>, StatusCode> {
     use crate::schema::order_items::dsl::*;
     use crate::schema::orders::dsl::*;
 
     let vec: Vec<(Order, OrderItem)> = orders
         .inner_join(order_items)
         .into_boxed()
-        .get_results(conn).map_err(|e| {
-            CustomErr::D(e)
-        })?;
+        .get_results(conn)
+        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut dictionary: HashMap<&uuid::Uuid, OrderDetails> = HashMap::new();
 
@@ -151,7 +139,7 @@ pub fn insert_new_user(
     email_str: &str,
     passwd: &str,
     conn: &PgConnection,
-) -> Result<models::User, diesel::result::Error> {
+) -> Result<models::User, StatusCode> {
     // It is common when using Diesel with Actix web to import schema-related
     // modules inside a function's scope (rather than the normal module's scope)
     // to prevent import collisions and namespace pollution.
@@ -166,7 +154,7 @@ pub fn insert_new_user(
         created_at: chrono::offset::Utc::now().naive_utc(),
     };
 
-    diesel::insert_into(users).values(&new_user).execute(conn)?;
+    diesel::insert_into(users).values(&new_user).execute(conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(new_user)
 }
@@ -193,18 +181,18 @@ pub fn insert_new_order(
 
     diesel::insert_into(orders)
         .values(&new_order)
-        .execute(conn).map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .execute(conn)
+        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(new_order)
 }
 
 /// Run query using Diesel to insert a new database row and return the result.
 pub fn insert_new_order_items(
-    // prevent collision with `name` column imported inside the function
     order_id_arg: uuid::Uuid,
     order_items_arg: Vec<NewOrderItem>,
     conn: &PgConnection,
-) -> Result<bool, diesel::result::Error> {
+) -> Result<bool, StatusCode> {
     // It is common when using Diesel with Actix web to import schema-related
     // modules inside a function's scope (rather than the normal module's scope)
     // to prevent import collisions and namespace pollution.
@@ -224,7 +212,8 @@ pub fn insert_new_order_items(
 
     diesel::insert_into(order_items)
         .values(&new_order_items)
-        .execute(conn)?;
+        .execute(conn)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(true)
 }

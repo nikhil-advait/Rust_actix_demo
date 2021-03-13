@@ -107,12 +107,13 @@ pub fn find_order_by_uid(uid: Uuid, conn: &PgConnection) -> Result<OrderDetails,
     Ok(ret_value)
 }
 
-pub fn find_all_orders(conn: &PgConnection) -> Result<Vec<OrderDetails>, StatusCode> {
+pub fn find_all_orders(uid: Uuid, conn: &PgConnection) -> Result<Vec<OrderDetails>, StatusCode> {
     use crate::schema::order_items::dsl::*;
     use crate::schema::orders::dsl::*;
 
     let vec: Vec<(Order, OrderItem)> = orders
         .inner_join(order_items)
+        .filter(user_id.eq(uid))
         .into_boxed()
         .get_results(conn)
         .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;

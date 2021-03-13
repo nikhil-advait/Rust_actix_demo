@@ -6,10 +6,17 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 mod actions;
 mod models;
-mod order_handlers;
-mod user_handlers;
+// mod user_handlers;
 mod schema;
 mod token_utils;
+
+mod orders {
+    pub mod order_handlers;
+}
+
+mod users {
+    pub mod user_handlers;
+}
 
 
 #[actix_web::main]
@@ -35,11 +42,11 @@ async fn main() -> std::io::Result<()> {
             // set up DB pool to be used with web::Data<Pool> extractor
             .data(pool.clone())
             .wrap(middleware::Logger::default())
-            .service(user_handlers::register_user)
-            .service(user_handlers::login_user)
-            .service(order_handlers::get_order)
-            .service(order_handlers::create_order)
-            .service(order_handlers::get_order_details_for_user)
+            .service(users::user_handlers::register_user)
+            .service(users::user_handlers::login_user)
+            .service(orders::order_handlers::get_order)
+            .service(orders::order_handlers::create_order)
+            .service(orders::order_handlers::get_order_details_for_user)
     })
     .bind(&bind)?
     .run()

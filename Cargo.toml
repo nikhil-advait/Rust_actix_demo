@@ -1,9 +1,8 @@
 [package]
-name = "diesel-example"
+name = "actix-diesel-ecommerce-demo"
 version = "1.0.0"
 authors = [
-  "Nikolay Kim <fafhrd91@gmail.com>",
-  "Rob Ede <robjtede@icloud.com>",
+  "Nikhil Yeole <nikhilytech@gmail.com>",
 ]
 edition = "2018"
 

@@ -22,6 +22,21 @@ pub fn find_user_by_uid(
     Ok(user)
 }
 
+pub fn find_user_by_email(
+    email_str: &str,
+    conn: &PgConnection,
+) -> Result<Option<models::User>, StatusCode> {
+    use crate::schema::users::dsl::*;
+
+    let user = users
+        .filter(email.eq(email_str))
+        .first::<models::User>(conn)
+        .optional()
+        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(user)
+}
+
 pub fn authenticate_request(
     header: Option<HeaderValue>,
     conn: &PgConnection,

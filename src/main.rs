@@ -40,8 +40,8 @@ async fn main() -> std::io::Result<()> {
             // set up DB pool to be used with web::Data<Pool> extractor
             .data(pool.clone())
             .wrap(middleware::Logger::default())
-            .service(user_handlers::add_user)
-            .service(user_handlers::get_user)
+            .service(user_handlers::register_user)
+            .service(user_handlers::login_user)
             .service(order_handlers::get_order)
             .service(order_handlers::create_order)
             .service(order_handlers::get_order_details_for_user)

@@ -41,7 +41,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(users::user_handlers::register_user)
             .service(users::user_handlers::login_user)
-            .service(orders::order_handlers::get_order)
+            .service(orders::order_handlers::get_order_by_id)
             .service(orders::order_handlers::create_order)
             .service(orders::order_handlers::get_order_details_for_user)
     })

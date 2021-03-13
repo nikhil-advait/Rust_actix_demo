@@ -70,19 +70,24 @@ pub async fn get_order_details_for_user(
         actions::find_all_orders_for_user(user_id, &conn)
     })
     .await
-    .map_err(|e| match e {
+    .map_err(|e| {
+        println!(" Print errors{}", e);
+        match e {
         BlockingError::Error(StatusCode::UNAUTHORIZED) => {
             ErrorUnauthorized("Provide proper access token")
         }
+        BlockingError::Error(StatusCode::NOT_FOUND) => {
+            ErrorNotFound("Incorrect access_token provided. Provide right access_token.")
+        }
         _ => ErrorInternalServerError("Something unexpected happened. Please retry"),
-    })?;
+    }})?;
 
     Ok(HttpResponse::Ok().json(order_details))
 }
 
 /// Finds user by UID.
 #[get("/api/v1/orders/{order_id}")]
-pub async fn get_order(
+pub async fn get_order_by_id(
     req: HttpRequest,
     pool: web::Data<DbPool>,
     order_uid: web::Path<Uuid>,

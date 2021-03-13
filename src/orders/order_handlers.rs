@@ -31,7 +31,7 @@ pub async fn create_order(
     let jwt_header = req.headers().get("access_token").cloned();
 
     // use web::block to offload blocking Diesel code without blocking server thread
-    let order = web::block(move || {
+    web::block(move || {
         // Todo: Convert authenticate_request function to actix middleware.
         let user_id = user_actions::authenticate_request(jwt_header, &conn)?;
         let order = actions::insert_new_order(order_id.clone(), user_id, note_option, &conn);
@@ -51,7 +51,7 @@ pub async fn create_order(
         }
     })?;
 
-    Ok(HttpResponse::Ok().json(order))
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[get("/api/v1/orders")]

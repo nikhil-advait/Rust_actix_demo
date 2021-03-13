@@ -20,6 +20,7 @@ pub fn find_order_by_id(user_id_arg: Uuid, oid: Uuid, conn: &PgConnection) -> Re
 
     let vec: Vec<(Order, OrderItem)> = orders
         .inner_join(order_items)
+        // Only allow to access user’s own order not others
         .filter(crate::schema::orders::dsl::user_id.eq(user_id_arg))
         .filter(crate::schema::orders::dsl::order_id.eq(oid))
         .into_boxed()
